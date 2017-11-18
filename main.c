@@ -1,107 +1,126 @@
+#include <stdio.h>
+#include <stdlib.h>
+
 #include <glad/glad.h>
 #include <glad/glad.c>
 #include <GLFW/glfw3.h>
-#include <math.h>
 
-#define PI 3.1415
-
-int n = 60;
-float accl[] = { 0.0f, 0.0f };
-float pos[] = { 0.0f, 0.0f };
-
-// this function will be called internally by GLFW whenever an error occur.
+// Function Declaration
+char* read_file(char* file_name);
 void error_callback(int error, const char* description);
+// --------------------
 
-int main() {
-    // tell GLFW to call error_callback if an internal error ever occur at some point inside GLFW functions.
-    glfwSetErrorCallback(error_callback);
+// Variable Declaration
 
-    // initialize all the internal state of GLFW
-    if (!glfwInit()) {
-        return -1;
-    }
+// -------------------- 
 
-    // create the window
-    int resx = 512, resy = 512;
-    GLFWwindow* window = glfwCreateWindow(resx, resy, "GLFW: Creating a window.", NULL, NULL);
+int main()
+{
+	glfwSetErrorCallback(error_callback);
 
-    // check if the opening of the window failed whatever reason and clean up
-    if (!window) { 
-        glfwTerminate();
-        return -2;
-    }
+	int result = glfwInit();
 
-    // in principle we can have multiple windows, 
-    // so we set the newly created on as "current"
-    glfwMakeContextCurrent(window);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    // Enable v-sync for now, if possible
-    glfwSwapInterval(1);
+	if(result == GLFW_FALSE)
+	{
+		printf("GLFW did not initialize correctly!\n");
+		return -1;
+	}
 
-    // load opengl functions
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-        printf("Could not load OpenGL functions");
-        return -3;
-    }
+	int width = 500, height = 500;
+	GLFWwindow* window = glfwCreateWindow(width, height, "N-Body Simulation", NULL, NULL);
 
-	double time = 0.0f;
-	float delta_t = 1.0f/150.0f;
-	glClearColor(1, 0, 1, 1);
-    // main loop
-    while (!glfwWindowShouldClose(window)) {
-        // listen for events (keyboard, mouse, etc.). ignored for now, but useful later
-        glfwPollEvents();
+	if(window == NULL)
+	{
+		glfwTerminate();
+		printf("The window did not initialize correctly!\n");
+		return -1;
+	}
 
-        // make it close on pressing escape
-        if (glfwGetKey(window, GLFW_KEY_ESCAPE)) glfwSetWindowShouldClose(window, GLFW_TRUE);
+	char* vertex_source = read_file("vertex_shader.glsl");
+	char* fragment_source = read_file("fragment_shader.glsl");
+
+//	printf("Vertex source: %s\n", vertex_source);
+//	printf("Fragment source: %s\n", fragment_source);
+
+	glfwMakeContextCurrent(window);
+	glfwSwapInterval(1); // Enable V-Sync
+	gladLoadGLLoader((GLADloadproc) glfwGetProcAddress); // Load GLAD (library loader)
+
+	// Loading & Compiling shaders
+	GLuint vertex_shader = glCreateShader(GL_VERTEX_SHADER);
+	glShaderSource(vertex_shader, 1, (const char **)&vertex_source, NULL);
+	glCompileShader(vertex_shader);
+
+	GLuint fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
+	glShaderSource(fragment_shader, 1, (const char **)&fragment_source, NULL); // why cast to (const char **) ????
+	glCompileShader(fragment_shader);
+
+	GLuint program = glCreateProgram();
+	glAttachShader(program, vertex_shader);
+	glAttachShader(program, fragment_shader);
+	glLinkProgram(program);
+	//  
+
+	while(!glfwWindowShouldClose(window))
+	{
+		glfwGetFramebufferSize(window, &width, &height);
+		glViewport(0, 0, width, height);
 
 		glClear(GL_COLOR_BUFFER_BIT);
 
-		time = glfwGetTime();
-		
-		if(glfwGetKey(window, GLFW_KEY_I))
-				n++;
+		glUseProgram(program);
+		glDrawArrays(GL_TRIANGLES, 0, 3);
 
-		if(glfwGetKey(window, GLFW_KEY_U))
-				n--;
+		glfwSwapBuffers(window);
+		glfwPollEvents();
+	}
 
-		// ground collision
-		if(pos[1] > -0.9)
-		{
-			accl[1] -= 0.1 * delta_t;
-		}
-		else
-		{
-			accl[1] = 0.0f * delta_t;
-			//accl[1] -= abs(accl[1]);
-		}
+	glfwTerminate();
 
-		// Impulsion
-		if(glfwGetKey(window, GLFW_KEY_SPACE))
-				accl[1] += 0.5f * delta_t;
+	return 0;
+}
 
-		pos[0] += accl[0];
-		pos[1] += accl[1];
+char* read_file(char* file_name)
+{
+	FILE* file = fopen(file_name, "r");
 
-		glBegin(GL_POLYGON);
-		for(int i = 0; i < n; i++)
-		{
-				glVertex2f(cos(2*i*PI/n) * 0.1f + pos[0], sin(2*i*PI/n) * 0.1f + pos[1]);
-		}
-		glEnd();
+	if(file == NULL)
+	{
+		//printf("Couldn't open the file %s.\n", *file_name);
+		return NULL;
+	}
 
-        // swap buffers (replace the old image with a new one)
-        // this won't have any visible effect until we add actual drawing
-        glfwSwapBuffers(window);
-    }
+	while(1)
+	{
+		char  c = fgetc(file);
+		if(feof(file))
+			break;
+	}
 
-    // clean up
-    glfwTerminate();
-    
-    return 0;
+	long size = ftell(file);
+
+	char* source = (char*) malloc(size);
+
+	rewind(file); // file stream goes back to first position
+
+	for(int i = 0; i < size; i++)
+	{
+		*(source + i) = fgetc(file);
+	}
+
+	//printf("File %s has a size of %d bytes.\n", file_name, size);
+
+	fclose(file);
+
+	return source;
 }
 
 void error_callback(int error, const char* description)
 {
-    fprintf(stderr, "Error: %s (%d)\n", description, error);
+	fprintf(stderr, "GLFW Error: %s\n", description);
 }
