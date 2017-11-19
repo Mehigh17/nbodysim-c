@@ -7,11 +7,23 @@
 
 // Function Declaration
 char* read_file(char* file_name);
+GLuint get_shader(char* file_name, GLenum type);
 void error_callback(int error, const char* description);
+void window_key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 // --------------------
 
 // Variable Declaration
+GLfloat triangle[3][2] = {
+		{-0.5, -0.5},
+		{0.0, 0.5},
+		{0.5, -0.5}};
 
+GLfloat colors[3][3] = {
+		{1.0, 1.0, 1.0},
+		{1.0, 1.0, 1.0},
+		{1.0, 1.0, 1.0}};
+
+GLuint vao, vbo[2];
 // -------------------- 
 
 int main()
@@ -41,48 +53,95 @@ int main()
 		return -1;
 	}
 
+	glfwSetKeyCallback(window, window_key_callback);
+
 	char* vertex_source = read_file("vertex_shader.glsl");
 	char* fragment_source = read_file("fragment_shader.glsl");
-
-//	printf("Vertex source: %s\n", vertex_source);
-//	printf("Fragment source: %s\n", fragment_source);
 
 	glfwMakeContextCurrent(window);
 	glfwSwapInterval(1); // Enable V-Sync
 	gladLoadGLLoader((GLADloadproc) glfwGetProcAddress); // Load GLAD (library loader)
 
-	// Loading & Compiling shaders
-	GLuint vertex_shader = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(vertex_shader, 1, (const char **)&vertex_source, NULL);
-	glCompileShader(vertex_shader);
+	// VAO
+	glGenVertexArrays(1, &vao);
+	glBindVertexArray(vao);
 
-	GLuint fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(fragment_shader, 1, (const char **)&fragment_source, NULL); // why cast to (const char **) ????
-	glCompileShader(fragment_shader);
+	glGenBuffers(2, vbo);
+
+	// Coordinates VBO
+	glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
+	glBufferData(GL_ARRAY_BUFFER, 6 * sizeof(GLfloat), triangle, GL_STATIC_DRAW); // Will have to use GL_DYANMIC_DRAW for moving shapes!
+	glVertexAttribPointer(0 /*vbo[0]*/, 2 /*vec2*/, GL_FLOAT, GL_FALSE, 0, 0);
+
+	glEnableVertexAttribArray(0); // Tell the GPU it can use vbo[0]
+	// ^ Finished transferring the vertices coordinates to the GPU memory
+
+	// Colors VBO
+	glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
+	glBufferData(GL_ARRAY_BUFFER, 9 * sizeof(GLfloat), colors, GL_STATIC_DRAW);
+	glVertexAttribPointer(1 /*vbo[1]*/, 3 /*vec3*/, GL_FLOAT, GL_FALSE, 0, 0);
+
+	glEnableVertexAttribArray(1); // Tell the GPU it can use vbo[1]
+	// ^ Finished transferring the colors coordinates to the GPU memory
+
+	// Loading & Compiling shaders
+	GLuint vertex_shader = get_shader(vertex_source, GL_VERTEX_SHADER); 	
+	GLuint fragment_shader = get_shader(fragment_source, GL_FRAGMENT_SHADER);
 
 	GLuint program = glCreateProgram();
 	glAttachShader(program, vertex_shader);
 	glAttachShader(program, fragment_shader);
+	// 
+
+	glBindAttribLocation(program, 0, "in_Position");
+	glBindAttribLocation(program, 1, "in_Color");
+
 	glLinkProgram(program);
-	//  
+	glUseProgram(program);
 
 	while(!glfwWindowShouldClose(window))
 	{
 		glfwGetFramebufferSize(window, &width, &height);
 		glViewport(0, 0, width, height);
 
+		glClearColor(0.0, 0.0, 0.0, 1.0);
 		glClear(GL_COLOR_BUFFER_BIT);
 
-		glUseProgram(program);
-		glDrawArrays(GL_TRIANGLES, 0, 3);
+		glDrawArrays(GL_TRIANGLE_FAN, 0, 3);
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
 
+	glfwDestroyWindow(window);
+
 	glfwTerminate();
 
 	return 0;
+}
+
+GLuint get_shader(char* source_code, GLenum type)
+{
+	GLuint shader = glCreateShader(type);
+
+	glShaderSource(shader, 1, (const char**)&source_code, NULL);
+	glCompileShader(shader);
+
+	int is_compiled;
+	glGetShaderiv(shader, GL_COMPILE_STATUS, &is_compiled);
+
+	if(is_compiled == GL_FALSE)
+	{
+		int max_len = 1000;
+		int log_len;
+		char* log = malloc(max_len); // max_len bytes
+
+		glGetShaderInfoLog(shader, max_len, &log_len, log);
+
+		printf("Shader compilation error:\n%s", log);
+		free(log);
+		return -1;
+	}
 }
 
 char* read_file(char* file_name)
@@ -118,6 +177,14 @@ char* read_file(char* file_name)
 	fclose(file);
 
 	return source;
+}
+
+void window_key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+	if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+	{
+		glfwSetWindowShouldClose(window, GLFW_TRUE);
+	}
 }
 
 void error_callback(int error, const char* description)
