@@ -22,9 +22,9 @@ GLfloat triangle[3][2] = {
 		{0.5, -0.5}};
 
 GLfloat colors[3][3] = {
-		{1.0, 1.0, 1.0},
-		{0.5, 0.5, 0.5},
-		{1.0, 1.0, 1.0}};
+		{0.0, 1.0, 1.0},
+		{1.0, 0.0, 1.0},
+		{1.0, 1.0, 0.0}};
 
 GLuint vao, vbo[2];
 // -------------------- 
@@ -87,9 +87,9 @@ int main()
 	glEnableVertexAttribArray(1); // Tell the GPU it can use vbo[1]
 	// ^ Finished transferring the colors coordinates to the GPU memory
 
-	// Loading & Compiling shaders (! Only the shader that comes first will load for some reason)
+	// Loading & Compiling shaders
+	GLuint vertex_shader = get_shader(vertex_source, GL_VERTEX_SHADER);
 	GLuint fragment_shader = get_shader(fragment_source, GL_FRAGMENT_SHADER);
-	GLuint vertex_shader = get_shader(vertex_source, GL_VERTEX_SHADER); 	
 
 	GLuint program = glCreateProgram();
 	glAttachShader(program, vertex_shader);
@@ -170,6 +170,8 @@ GLuint get_shader(char* source_code, GLenum type)
 		free(log);
 		return -1;
 	}
+
+	return shader;
 }
 
 char* read_file(char* file_name)
