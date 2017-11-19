@@ -71,20 +71,17 @@ int main()
 
 	glGenBuffers(2, vbo);
 
+	glEnableVertexAttribArray(0);
+	glEnableVertexAttribArray(1);
+
 	// Coordinates VBO
 	glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
 	glBufferData(GL_ARRAY_BUFFER, 6 * sizeof(GLfloat), triangle, GL_STATIC_DRAW); // Will have to use GL_DYANMIC_DRAW for moving shapes!
-	glVertexAttribPointer(0 /*vbo[0]*/, 2 /*vec2*/, GL_FLOAT, GL_FALSE, 0, 0);
-
-	glEnableVertexAttribArray(0); // Tell the GPU it can use vbo[0]
 	// ^ Finished transferring the vertices coordinates to the GPU memory
 
 	// Colors VBO
 	glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
 	glBufferData(GL_ARRAY_BUFFER, 9 * sizeof(GLfloat), colors, GL_STATIC_DRAW);
-	glVertexAttribPointer(1 /*vbo[1]*/, 3 /*vec3*/, GL_FLOAT, GL_FALSE, 0, 0);
-
-	glEnableVertexAttribArray(1); // Tell the GPU it can use vbo[1]
 	// ^ Finished transferring the colors coordinates to the GPU memory
 
 	// Loading & Compiling shades
@@ -96,8 +93,8 @@ int main()
 	glAttachShader(program, fragment_shader);
 	// 
 
-	glBindAttribLocation(program, 0, "in_Position");
-	glBindAttribLocation(program, 1, "in_Color");
+	/*glBindAttribLocation(program, 0, "in_Position");
+	glBindAttribLocation(program, 1, "in_Color");*/
 
 	glLinkProgram(program);
 	glUseProgram(program);
@@ -176,7 +173,7 @@ GLuint get_shader(char* source_code, GLenum type)
 
 char* read_file(char* file_name)
 {
-	FILE* file = fopen(file_name, "r");
+	FILE* file = fopen(file_name, "rb");
 
 	if(file == NULL)
 	{
@@ -193,7 +190,8 @@ char* read_file(char* file_name)
 
 	long size = ftell(file);
 
-	char* source = (char*) malloc(size);
+	char* source = (char*) malloc(size + 1);
+	*(source + size + 1) = '\0';
 
 	rewind(file); // file stream goes back to first position
 
