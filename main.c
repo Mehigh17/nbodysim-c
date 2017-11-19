@@ -87,7 +87,7 @@ int main()
 	glEnableVertexAttribArray(1); // Tell the GPU it can use vbo[1]
 	// ^ Finished transferring the colors coordinates to the GPU memory
 
-	// Loading & Compiling shaders
+	// Loading & Compiling shades
 	GLuint vertex_shader = get_shader(vertex_source, GL_VERTEX_SHADER);
 	GLuint fragment_shader = get_shader(fragment_source, GL_FRAGMENT_SHADER);
 
@@ -154,8 +154,6 @@ GLuint get_shader(char* source_code, GLenum type)
 	glShaderSource(shader, 1, (const char**)&source_code, NULL);
 	glCompileShader(shader);
 
-	printf("Shader source code:\n%s", source_code);
-
 	int is_compiled;
 	glGetShaderiv(shader, GL_COMPILE_STATUS, &is_compiled);
 
@@ -166,6 +164,8 @@ GLuint get_shader(char* source_code, GLenum type)
 		char* log = malloc(max_len); // max_len bytes
 
 		glGetShaderInfoLog(shader, max_len, &log_len, log);
+
+		printf("Shader compilation error:\n%s", log);
 
 		free(log);
 		return -1;
