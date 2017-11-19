@@ -1,5 +1,5 @@
 all:
-	gcc main.c -lglfw
+	gcc main.c -lglfw -lm
 
 run: all 
 	./a.out

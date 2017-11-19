@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 
 #include <glad/glad.h>
 #include <glad/glad.c>
@@ -10,6 +11,8 @@ char* read_file(char* file_name);
 GLuint get_shader(char* file_name, GLenum type);
 void error_callback(int error, const char* description);
 void window_key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
+
+void compute_movement(); // bs method - temeporary
 // --------------------
 
 // Variable Declaration
@@ -20,7 +23,7 @@ GLfloat triangle[3][2] = {
 
 GLfloat colors[3][3] = {
 		{1.0, 1.0, 1.0},
-		{1.0, 1.0, 1.0},
+		{0.5, 0.5, 0.5},
 		{1.0, 1.0, 1.0}};
 
 GLuint vao, vbo[2];
@@ -84,9 +87,9 @@ int main()
 	glEnableVertexAttribArray(1); // Tell the GPU it can use vbo[1]
 	// ^ Finished transferring the colors coordinates to the GPU memory
 
-	// Loading & Compiling shaders
-	GLuint vertex_shader = get_shader(vertex_source, GL_VERTEX_SHADER); 	
+	// Loading & Compiling shaders (! Only the shader that comes first will load for some reason)
 	GLuint fragment_shader = get_shader(fragment_source, GL_FRAGMENT_SHADER);
+	GLuint vertex_shader = get_shader(vertex_source, GL_VERTEX_SHADER); 	
 
 	GLuint program = glCreateProgram();
 	glAttachShader(program, vertex_shader);
@@ -104,6 +107,8 @@ int main()
 		glfwGetFramebufferSize(window, &width, &height);
 		glViewport(0, 0, width, height);
 
+		compute_movement();
+
 		glClearColor(0.0, 0.0, 0.0, 1.0);
 		glClear(GL_COLOR_BUFFER_BIT);
 
@@ -120,12 +125,36 @@ int main()
 	return 0;
 }
 
+void compute_movement()
+{
+	GLfloat shape[3][2];
+	for(int i = 0; i < 3; i++)
+	{
+		for(int j = 0; j < 2; j++)
+		{
+			shape[i][j] = triangle[i][j];
+
+			if(j == 0)
+				shape[i][j] += cos(glfwGetTime()) / 2.0;
+
+			if(j == 1)
+				shape[i][j] += sin(glfwGetTime()) / 2.0;
+		}
+	}
+
+	// Update the coordinates vertex buffer object
+	glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
+	glBufferData(GL_ARRAY_BUFFER, 6 * sizeof(GLfloat), shape, GL_DYNAMIC_DRAW); 
+}
+
 GLuint get_shader(char* source_code, GLenum type)
 {
 	GLuint shader = glCreateShader(type);
 
 	glShaderSource(shader, 1, (const char**)&source_code, NULL);
 	glCompileShader(shader);
+
+	printf("Shader source code:\n%s", source_code);
 
 	int is_compiled;
 	glGetShaderiv(shader, GL_COMPILE_STATUS, &is_compiled);
@@ -138,7 +167,6 @@ GLuint get_shader(char* source_code, GLenum type)
 
 		glGetShaderInfoLog(shader, max_len, &log_len, log);
 
-		printf("Shader compilation error:\n%s", log);
 		free(log);
 		return -1;
 	}
