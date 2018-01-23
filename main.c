@@ -1,231 +1,96 @@
-#include <stdio.h>
-#include <stdlib.h>
+#include <SDL2/SDL.h>
 #include <math.h>
+#include <stdio.h>
 
-#include <glad/glad.h>
-#include <glad/glad.c>
-#include <GLFW/glfw3.h>
+#define PARTICLE_COUNT 2
 
-// Function Declaration
-char* read_file(char* file_name);
-GLuint get_shader(char* file_name, GLenum type);
-void error_callback(int error, const char* description);
-void window_key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
-
-void compute_movement(); // bs method - temeporary
-// --------------------
-
-// Variable Declaration
-GLfloat triangle[3][2] = {
-		{-0.5, -0.5},
-		{0.0, 0.5},
-		{0.5, -0.5}};
-
-GLfloat colors[3][3] = {
-		{0.0, 1.0, 1.0},
-		{1.0, 0.0, 1.0},
-		{1.0, 1.0, 0.0}};
-
-GLuint vao, vbo[2];
-// -------------------- 
+float dist(float x1, float x2, float y1, float y2);
 
 int main()
 {
-	glfwSetErrorCallback(error_callback);
+	const int windowWidth = 500;
+	const int windowHeight = 500;
 
-	int result = glfwInit();
+	SDL_Window* window = NULL;
+	SDL_Surface* surface = NULL;
+	SDL_Surface* particleSurface = NULL;
+	int particleSize = 50;
 
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+	// Simulation Data
+	float posX[PARTICLE_COUNT] = { 50.0, 450.0 };
+	float posY[PARTICLE_COUNT] = { 50.0, 450.0 };
+//	float charge[PARTICLE_COUNT] = { 1.6 * pow(10.0, -19.0), -1.6 * pow(10.0, -19.0) };
+	float charge[PARTICLE_COUNT] = { 1.0, -30.0 };
+	float mass[PARTICLE_COUNT] = { 1.0, 1.0 };
+	// -
 
-	if(result == GLFW_FALSE)
+	if(SDL_Init(SDL_INIT_VIDEO) < 0)
 	{
-		printf("GLFW did not initialize correctly!\n");
-		return -1;
+		printf("Failed to intialize the SDL library. Error: %s\n", SDL_GetError());
 	}
-
-	int width = 500, height = 500;
-	GLFWwindow* window = glfwCreateWindow(width, height, "N-Body Simulation", NULL, NULL);
-
-	if(window == NULL)
+	else
 	{
-		glfwTerminate();
-		printf("The window did not initialize correctly!\n");
-		return -1;
+		window = SDL_CreateWindow ("test", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, windowWidth, windowHeight, SDL_WINDOW_SHOWN);
+		if(window == NULL)
+		{
+			printf("Failed to initialize the SDL window. Error: %s\n", SDL_GetError());
+		}
+		else
+		{
+			surface = SDL_GetWindowSurface(window);
+			SDL_Event event;
+			int run = 1;
+
+			particleSurface = SDL_LoadBMP("images/circle.bmp");
+			if(particleSurface == NULL)
+			{
+				printf("Failed to load the particle file. \nError: %s\n", SDL_GetError());
+				run = 0;
+			}
+
+			float timeStep = 0.001;
+			while(run)
+			{
+				SDL_FillRect(surface, NULL, 0x0);
+				while(SDL_PollEvent(&event))
+				{
+					if(event.type == SDL_QUIT || event.type == SDL_KEYDOWN)
+						run = 0;
+				}
+
+				for(int i = 0; i < PARTICLE_COUNT; i++)
+				{
+					//float K = 9.0 * pow(10.0, 9.0);
+					float K = 90.0;
+					int cPi = (i == 0 ? 1 : 0); // counter particle index
+
+					float distance = dist(posX[i], posX[cPi], posY[i], posY[cPi]);
+					float forceX = (posX[i] - posX[cPi]) * K * charge[i] * charge[cPi] / pow(distance, 3.0/2.0);
+					float forceY = (posY[i] - posY[cPi]) * K * charge[i] * charge[cPi] / pow(distance, 3.0/2.0);
+
+					printf("Force X (%d) = %f\n", i, forceX);
+
+					posX[i] += (forceX / mass[i]) * timeStep;
+					posY[i] += (forceY / mass[i]) * timeStep;
+
+					SDL_Rect destRect;
+					destRect.x = posX[i];
+					destRect.y = posY[i];
+					destRect.y += (forceY / mass[i]) * timeStep;
+					SDL_BlitSurface(particleSurface, NULL, surface, &destRect);
+				}
+
+				SDL_UpdateWindowSurface(window);
+				SDL_Delay(timeStep * 1000);
+			}
+		}
+		SDL_DestroyWindow(window);
+		SDL_Quit();
 	}
-
-	glfwSetKeyCallback(window, window_key_callback);
-
-	char* vertex_source = read_file("vertex_shader.glsl");
-	char* fragment_source = read_file("fragment_shader.glsl");
-
-	glfwMakeContextCurrent(window);
-	glfwSwapInterval(1); // Enable V-Sync
-	gladLoadGLLoader((GLADloadproc) glfwGetProcAddress); // Load GLAD (library loader)
-
-	// VAO
-	glGenVertexArrays(1, &vao);
-	glBindVertexArray(vao);
-
-	glGenBuffers(2, vbo);
-
-	// Coordinates VBO
-	glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
-	glBufferData(GL_ARRAY_BUFFER, 6 * sizeof(GLfloat), triangle, GL_STATIC_DRAW); // Will have to use GL_DYANMIC_DRAW for moving shapes!
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
-	glEnableVertexAttribArray(0);
-	// ^ Finished transferring the vertices coordinates to the GPU memory
-
-	// Colors VBO
-	glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
-	glBufferData(GL_ARRAY_BUFFER, 9 * sizeof(GLfloat), colors, GL_STATIC_DRAW);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, 0);
-	glEnableVertexAttribArray(1);
-	// ^ Finished transferring the colors coordinates to the GPU memory
-
-	// Loading & Compiling shades
-	GLuint vertex_shader = get_shader(vertex_source, GL_VERTEX_SHADER);
-	GLuint fragment_shader = get_shader(fragment_source, GL_FRAGMENT_SHADER);
-
-	GLuint program = glCreateProgram();
-	glAttachShader(program, vertex_shader);
-	glAttachShader(program, fragment_shader);
-	// 
-
-	glLinkProgram(program);
-	// Linking verification
-	GLuint is_linked;
-	glGetProgramiv(program, GL_LINK_STATUS, &is_linked);
-	if(is_linked == GL_FALSE)
-	{
-		GLuint maxLen;
-		char* log = malloc(1000);
-		glGetProgramInfoLog(program, 1000, &maxLen, log);
-		printf("Program linking error:\n%s", log);
-	}
-	//
-
-	glUseProgram(program);
-
-	while(!glfwWindowShouldClose(window))
-	{
-		glfwGetFramebufferSize(window, &width, &height);
-		glViewport(0, 0, width, height);
-
-		//compute_movement();
-
-		glClearColor(0.0, 0.0, 0.0, 1.0);
-		glClear(GL_COLOR_BUFFER_BIT);
-
-		glDrawArrays(GL_TRIANGLE_FAN, 0, 3);
-
-		glfwSwapBuffers(window);
-		glfwPollEvents();
-	}
-
-	/*const GLubyte* version = glGetString(GL_SHADING_LANGUAGE_VERSION);
-	printf("GL Version: %s\n", version);*/
-
-	glfwDestroyWindow(window);
-
-	glfwTerminate();
-
 	return 0;
 }
 
-void compute_movement()
+float dist(float x1, float x2, float y1, float y2)
 {
-	GLfloat shape[3][2];
-	for(int i = 0; i < 3; i++)
-	{
-		for(int j = 0; j < 2; j++)
-		{
-			shape[i][j] = triangle[i][j];
-
-			if(j == 0)
-				shape[i][j] += cos(glfwGetTime()) / 2.0;
-
-			if(j == 1)
-				shape[i][j] += sin(glfwGetTime()) / 2.0;
-		}
-	}
-
-	// Update the coordinates vertex buffer object
-	glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
-	glBufferData(GL_ARRAY_BUFFER, 6 * sizeof(GLfloat), shape, GL_DYNAMIC_DRAW); 
-}
-
-GLuint get_shader(char* source_code, GLenum type)
-{
-	GLuint shader = glCreateShader(type);
-
-	glShaderSource(shader, 1, (const char**)&source_code, NULL);
-	glCompileShader(shader);
-
-	int is_compiled;
-	glGetShaderiv(shader, GL_COMPILE_STATUS, &is_compiled);
-
-	if(is_compiled == GL_FALSE)
-	{
-		int max_len = 1000;
-		int log_len;
-		char* log = malloc(max_len);
-
-		glGetShaderInfoLog(shader, max_len, &log_len, log);
-
-		printf("Shader compilation error:\n%s", log);
-
-		free(log);
-		return -1;
-	}
-
-	return shader;
-}
-
-char* read_file(char* file_name)
-{
-	FILE* file = fopen(file_name, "rb");
-
-	if(file == NULL)
-	{
-		//printf("Couldn't open the file %s.\n", *file_name);
-		return NULL;
-	}
-
-	while(1)
-	{
-		char  c = fgetc(file);
-		if(feof(file))
-			break;
-	}
-
-	long size = ftell(file);
-
-	char* source = (char*) malloc(size + 1);
-	source[size + 1] = '\0';
-
-	rewind(file); // file stream goes back to first position
-
-	fread(source, sizeof(char), size, file);
-
-	//printf("File %s has a size of %d bytes.\nSource code:\n%s", file_name, size, source);
-
-	fclose(file);
-
-	return source;
-}
-
-void window_key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
-{
-	if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
-	{
-		glfwSetWindowShouldClose(window, GLFW_TRUE);
-	}
-}
-
-void error_callback(int error, const char* description)
-{
-	fprintf(stderr, "GLFW Error: %s\n", description);
+	return sqrt(pow(x2 - x1, 2.0) + pow(y2 - y1, 2.0));
 }
