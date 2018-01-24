@@ -5,6 +5,8 @@
 
 #ifdef linux
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
+#include <SDL2/SDL_ttf.h>
 #endif
 
 #include <time.h>
@@ -12,7 +14,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define METERS_PER_PIXEL 10E29
+#define METERS_PER_PIXEL 10E-31
 
 float dist(float x1, float x2, float y1, float y2);
 
@@ -23,19 +25,21 @@ int main(int argc, char **argv)
 
 	SDL_Window* window = NULL;
 	SDL_Renderer* renderer = NULL;
-	SDL_Surface* positiveParticleSurface = NULL;
-	SDL_Surface* negativeParticleSurface = NULL;
-	SDL_Surface* neutralParticleSurface = NULL;
 	int particleSize = 25; // image size in pixels
 
+	// Simulation Info
+	int computationCount = 0;
 	// Simulation Data
 	srand(time(NULL));
+	float timeStep = 0.001;
 	int particleCount = (argc == 2 ? atoi(argv[1]) : 10);
 	float posX[particleCount];
 	float posY[particleCount];
 	float charge[particleCount];
 	float mass[particleCount];
 	float K = 8.99 * pow(10.0, 9.0); // Coulomb's Constant
+
+	// Setting initial position in pixels then working with meters
 	for(int i = 0; i < particleCount; i++)
 	{
 		posX[i] = rand() % windowWidth;
@@ -45,23 +49,35 @@ int main(int argc, char **argv)
 	}
 	// -
 
-	if(SDL_Init(SDL_INIT_VIDEO) < 0)
+	if(SDL_Init(SDL_INIT_VIDEO) < 0 || TTF_Init() < 0)
 	{
 		printf("Failed to intialize the SDL library. Error: %s\n", SDL_GetError());
 	}
 	else
 	{
-		//window = SDL_CreateWindow("nbodysim-c", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, windowWidth, windowHeight, SDL_WINDOW_SHOWN);
 		if(SDL_CreateWindowAndRenderer(windowWidth, windowHeight, SDL_WINDOW_SHOWN, &window, &renderer) == 0)
 		{
-			SDL_Event event;
 			int run = 1;
 
-			SDL_Rect sourceRect;
-			sourceRect.x = 0;
-			sourceRect.y = 0;
-			sourceRect.w = particleSize;
-			sourceRect.y = particleSize;
+			SDL_Color fontColor = {255, 255, 255};
+			int fontSize = 18;
+			TTF_Font* font = TTF_OpenFont("fonts/arial.ttf", fontSize);
+			if(!font)
+			{
+				printf("Failed to load the font file. \nError: %s\n", SDL_GetError());
+				run = 0;
+			}
+
+			char textString[100];
+			SDL_Surface* textSurface;
+			SDL_Texture* textTexture;
+			SDL_Rect destRectText;
+			destRectText.x = 10;
+			destRectText.y = 10;
+			destRectText.w = fontSize;
+			destRectText.h = fontSize;
+
+			SDL_Event event;
 
 			SDL_Texture* positiveParticleTexture = IMG_LoadTexture(renderer, "images/positive_particle.png");
 			SDL_Texture* negativeParticleTexture = IMG_LoadTexture(renderer, "images/negative_particle.png");
@@ -73,9 +89,14 @@ int main(int argc, char **argv)
 				run = 0;
 			}
 
-			float timeStep = 0.001;
 			while(run)
 			{
+				sprintf(textString, "Particles count: %i, Computation loop count: %i, using SDL2", particleCount, computationCount);
+				destRectText.w = fontSize * strlen(textString) / 2;
+
+				textSurface = TTF_RenderText_Solid(font, textString, fontColor);
+				textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
+
 				while(SDL_PollEvent(&event))
 					if(event.type == SDL_QUIT || event.type == SDL_KEYDOWN)
 						run = 0;
@@ -83,6 +104,7 @@ int main(int argc, char **argv)
 				SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
                 SDL_RenderClear(renderer);
                 SDL_SetRenderDrawColor(renderer, 255, 255, 255, SDL_ALPHA_OPAQUE);
+                SDL_RenderCopy(renderer, textTexture, NULL, &destRectText);
 
 				for(int i = 0; i < particleCount; i++)
 				{
@@ -109,8 +131,8 @@ int main(int argc, char **argv)
 					{
 						if(i != j)
 						{
-							float distance = dist(posX[i], posX[j], posY[i], posY[j]);
-							if(distance <= (particleSize / 2.0))
+							float distance = dist(posX[i], posX[j], posY[i], posY[j]); // In pixels
+							if(distance <= (particleSize / 50.0))
 							{
 								charge[i] = charge[j] = 0.0;
 								posX[j] = posX[i];
@@ -118,14 +140,30 @@ int main(int argc, char **argv)
 								break;
 							}
 
-							float forceX = (posX[i] - posX[j]) * K * charge[i] * charge[j] / pow(distance, 3.0/2.0);
-							float forceY = (posY[i] - posY[j]) * K * charge[i] * charge[j] / pow(distance, 3.0/2.0);
+							float chargeProduct = charge[i] * charge[j];
+							float distanceDenominator = pow(distance, 3.0/2.0) * METERS_PER_PIXEL;
 
-							// speed = acceleration * time
-							posX[i] += (forceX / mass[i]) * timeStep * METERS_PER_PIXEL;
-							posY[i] += (forceY / mass[i]) * timeStep * METERS_PER_PIXEL;
+							// Force dimesion: ([M=kg][L=meter])/[T=seconds]^-2
+							float forceX = (posX[i] - posX[j]) * K * chargeProduct / distanceDenominator;
+							float forceY = (posY[i] - posY[j]) * K * chargeProduct / distanceDenominator;
 
-							SDL_RenderDrawLine(renderer, posX[i] + particleSize/2.0, posY[i] + particleSize/2.0, posX[j] + particleSize/2.0, posY[j] + particleSize/2.0);
+							// [L=meter] = ([Force]/[M=kg] = [L=meter]/[T=seconds]^-2) * [T=seconds]
+							posX[i] += (forceX / mass[i]) * timeStep;
+							posY[i] += (forceY / mass[i]) * timeStep;
+
+							if(chargeProduct != 0)
+							{
+								if(chargeProduct < 0)
+								{
+									SDL_SetRenderDrawColor(renderer, 0, 255, 0, SDL_ALPHA_OPAQUE);
+								}
+								else if(chargeProduct > 0)
+								{
+									SDL_SetRenderDrawColor(renderer, 255, 0, 0, SDL_ALPHA_OPAQUE);
+								}
+								SDL_RenderDrawLine(renderer, posX[i] + particleSize/2.0, posY[i] + particleSize/2.0, posX[j] + particleSize/2.0, posY[j] + particleSize/2.0);
+							}
+							computationCount++;
 						}
 					}
 				}
@@ -133,11 +171,20 @@ int main(int argc, char **argv)
 				SDL_RenderPresent(renderer);
 				SDL_Delay(timeStep * 1000);
 			}
+
+			TTF_CloseFont(font);
+			SDL_FreeSurface(textSurface);
+			SDL_DestroyTexture(textTexture);
+			SDL_DestroyTexture(positiveParticleTexture);
+			SDL_DestroyTexture(negativeParticleTexture);
+			SDL_DestroyTexture(neutralParticleTexture);
 		}
 		else
 		{
 			printf("Failed to initialize the SDL window/renderer. \nError: %s\n", SDL_GetError());
 		}
+
+		SDL_DestroyRenderer(renderer);
 		SDL_DestroyWindow(window);
 		SDL_Quit();
 	}
