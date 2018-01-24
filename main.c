@@ -29,6 +29,10 @@ int main(int argc, char **argv)
 
 	// Simulation Info
 	int computationCount = 0;
+	const float elementaryCharge = 1.602 * pow(10.0, -19.0);
+	const float K = 8.99 * pow(10.0, 9.0); // Coulomb's Constant
+	const float permittivity = 1.006; // Environment's permittivity (1.006 for air, 80.0 for water)
+	float simulationTime = 0.0;
 	// Simulation Data
 	srand(time(NULL));
 	float timeStep = 0.001;
@@ -37,14 +41,13 @@ int main(int argc, char **argv)
 	float posY[particleCount];
 	float charge[particleCount];
 	float mass[particleCount];
-	float K = 8.99 * pow(10.0, 9.0); // Coulomb's Constant
 
 	// Setting initial position in pixels then working with meters
 	for(int i = 0; i < particleCount; i++)
 	{
 		posX[i] = rand() % windowWidth;
 		posY[i] = rand() % windowHeight;
-		charge[i] = 1.602 * pow(10.0, -19.0) * (rand() % 2 == 0 ? 1.0 : -1.0 ); // Elementary charge
+		charge[i] = elementaryCharge * (rand() % 2 == 0 ? 1.0 : -1.0 ); // Elementary charge
 		mass[i] = 1.0;
 	}
 	// -
@@ -91,7 +94,9 @@ int main(int argc, char **argv)
 
 			while(run)
 			{
-				sprintf(textString, "Particles count: %i, Computation loop count: %i, using SDL2", particleCount, computationCount);
+				simulationTime = SDL_GetTicks() / 1000.0; // seconds
+
+				sprintf(textString, "Particles count: %i, Computation loop count: %i, Simulaton time: %.3fs, using SDL2", particleCount, computationCount, simulationTime);
 				destRectText.w = fontSize * strlen(textString) / 2;
 
 				textSurface = TTF_RenderText_Solid(font, textString, fontColor);
@@ -144,8 +149,8 @@ int main(int argc, char **argv)
 							float distanceDenominator = pow(distance, 3.0/2.0) * METERS_PER_PIXEL;
 
 							// Force dimesion: ([M=kg][L=meter])/[T=seconds]^-2
-							float forceX = (posX[i] - posX[j]) * K * chargeProduct / distanceDenominator;
-							float forceY = (posY[i] - posY[j]) * K * chargeProduct / distanceDenominator;
+							float forceX = (posX[i] - posX[j]) * (K/permittivity) * chargeProduct / distanceDenominator;
+							float forceY = (posY[i] - posY[j]) * (K/permittivity) * chargeProduct / distanceDenominator;
 
 							// [L=meter] = ([Force]/[M=kg] = [L=meter]/[T=seconds]^-2) * [T=seconds]
 							posX[i] += (forceX / mass[i]) * timeStep;
@@ -169,7 +174,7 @@ int main(int argc, char **argv)
 				}
 
 				SDL_RenderPresent(renderer);
-				SDL_Delay(timeStep * 1000);
+				//SDL_Delay(timeStep * 1000);
 			}
 
 			TTF_CloseFont(font);
