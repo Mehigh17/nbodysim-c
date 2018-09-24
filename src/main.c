@@ -1,9 +1,11 @@
-#ifdef _WIN32
+#define LINUX
+
+#ifdef WINDOW
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
 #endif
 
-#ifdef linux
+#ifdef LINUX
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_ttf.h>
@@ -13,6 +15,8 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#include "../headers/GenericTypes.h"
 
 #define METERS_PER_PIXEL 10E-31
 
@@ -25,7 +29,7 @@ int main(int argc, char **argv)
 
 	SDL_Window* window = NULL;
 	SDL_Renderer* renderer = NULL;
-	int particleSize = 25; // image size in pixels
+	const int particleSize = 25; // image size in pixels
 
 	// Simulation Info
 	int computationCount = 0;
@@ -35,23 +39,21 @@ int main(int argc, char **argv)
 	const float K = 1.0;
 	const float permittivity = 1.006; // Environment's permittivity (1.006 for air, 80.0 for water)
 	float simulationTime = 0.0;
+	
 	// Simulation Data
 	srand(time(NULL));
 	float timeStep = 0.01;
 	float frameStep = 0.016;
 	int particleCount = (argc == 2 ? atoi(argv[1]) : 10);
-	float posX[particleCount];
-	float posY[particleCount];
-	float charge[particleCount];
-	float mass[particleCount];
+	Particle particles[particleCount];
 
 	// Setting initial position in pixels then working with meters
 	for(int i = 0; i < particleCount; i++)
 	{
-		posX[i] = rand() % windowWidth;
-		posY[i] = rand() % windowHeight;
-		charge[i] = elementaryCharge * (rand() % 2 == 0 ? 1.0 : -1.0 ); // Elementary charge
-		mass[i] = 1.0;
+		particles[i].posX = rand() % windowWidth;
+		particles[i].posY = rand() % windowHeight;
+		particles[i].charge = elementaryCharge * (rand() % 2 == 0 ? 1.0 : -1.0 ); // Elementary charge
+		particles[i].mass = 1.0;
 	}
 	// -
 
@@ -117,16 +119,16 @@ int main(int argc, char **argv)
 				for(int i = 0; i < particleCount; i++)
 				{
 					SDL_Rect destRect;
-					destRect.x = posX[i];
-					destRect.y = posY[i];
+					destRect.x = particles[i].posX;
+					destRect.y = particles[i].posY;
 					destRect.w = particleSize;
 					destRect.h = particleSize;
 
-					if(charge[i] > 0.0)
+					if(particles[i].charge > 0.0)
 					{
 						SDL_RenderCopy(renderer, positiveParticleTexture, NULL, &destRect);
 					}
-					else if(charge[i] < 0.0)
+					else if(particles[i].charge < 0.0)
 					{
 						SDL_RenderCopy(renderer, negativeParticleTexture, NULL, &destRect);
 					}
@@ -140,21 +142,21 @@ int main(int argc, char **argv)
 					{
 						if(i != j)
 						{
-							float distance = dist(posX[i], posX[j], posY[i], posY[j]); // In pixels
+							float distance = dist(particles[i].posX, particles[j].posX, particles[i].posY, particles[j].posY); // In pixels
 							if(distance <= (particleSize / 50.0))
 							{
-								charge[i] = charge[j] = 0.0;
-								posX[j] = posX[i];
-								posY[j] = posY[i];
+								particles[i].charge = particles[j].charge = 0.0;
+								particles[j].posX = particles[i].posX;
+								particles[j].posY = particles[i].posY;
 								break;
 							}
 
-							float chargeProduct = charge[i] * charge[j];
+							float chargeProduct = particles[i].charge * particles[j].charge;
 							float distanceDenominator = pow(distance, 3.0/2.0) * METERS_PER_PIXEL; // In meters
 
 							// Force dimesion: ([M=kg][L=meter])/[T=seconds]^-2
-							forceX += (posX[i] - posX[j]) * (K/permittivity) * chargeProduct / distanceDenominator;
-							forceY += (posY[i] - posY[j]) * (K/permittivity) * chargeProduct / distanceDenominator;
+							forceX += (particles[i].posX - particles[j].posX) * (K/permittivity) * chargeProduct / distanceDenominator;
+							forceY += (particles[i].posY - particles[j].posY) * (K/permittivity) * chargeProduct / distanceDenominator;
 
 							if(chargeProduct != 0)
 							{
@@ -166,15 +168,15 @@ int main(int argc, char **argv)
 								{
 									SDL_SetRenderDrawColor(renderer, 255, 0, 0, SDL_ALPHA_OPAQUE);
 								}
-								SDL_RenderDrawLine(renderer, posX[i] + particleSize/2.0, posY[i] + particleSize/2.0, posX[j] + particleSize/2.0, posY[j] + particleSize/2.0);
+								SDL_RenderDrawLine(renderer, particles[i].posX + particleSize/2.0, particles[i].posY + particleSize/2.0, particles[j].posX + particleSize/2.0, particles[j].posY + particleSize/2.0);
 							}
 							computationCount++;
 						}
 					}
 
 					// [L=meter] = ([Force]/[M=kg] = [L=meter]/[T=seconds]^-2) * [T=seconds]
-					posX[i] += (forceX / mass[i]) * timeStep;
-					posY[i] += (forceY / mass[i]) * timeStep;
+					particles[i].posX += (forceX / particles[i].mass) * timeStep;
+					particles[i].posY += (forceY / particles[i].mass) * timeStep;
 				}
 
 				SDL_RenderPresent(renderer);
