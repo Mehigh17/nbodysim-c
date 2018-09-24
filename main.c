@@ -29,13 +29,16 @@ int main(int argc, char **argv)
 
 	// Simulation Info
 	int computationCount = 0;
-	const float elementaryCharge = 1.602 * pow(10.0, -19.0);
-	const float K = 8.99 * pow(10.0, 9.0); // Coulomb's Constant
+	const float electronMass = 1.0;
+	const float protonMass = 1836.0 * electronMass;
+	const float elementaryCharge = 1.0;
+	const float K = 1.0;
 	const float permittivity = 1.006; // Environment's permittivity (1.006 for air, 80.0 for water)
 	float simulationTime = 0.0;
 	// Simulation Data
 	srand(time(NULL));
-	float timeStep = 0.001;
+	float timeStep = 0.01;
+	float frameStep = 0.016;
 	int particleCount = (argc == 2 ? atoi(argv[1]) : 10);
 	float posX[particleCount];
 	float posY[particleCount];
@@ -132,6 +135,7 @@ int main(int argc, char **argv)
 						SDL_RenderCopy(renderer, neutralParticleTexture, NULL, &destRect);
 					}
 
+					float forceX = 0.0, forceY = 0.0;
 					for(int j = 0; j < particleCount; j++)
 					{
 						if(i != j)
@@ -146,15 +150,11 @@ int main(int argc, char **argv)
 							}
 
 							float chargeProduct = charge[i] * charge[j];
-							float distanceDenominator = pow(distance, 3.0/2.0) * METERS_PER_PIXEL;
+							float distanceDenominator = pow(distance, 3.0/2.0) * METERS_PER_PIXEL; // In meters
 
 							// Force dimesion: ([M=kg][L=meter])/[T=seconds]^-2
-							float forceX = (posX[i] - posX[j]) * (K/permittivity) * chargeProduct / distanceDenominator;
-							float forceY = (posY[i] - posY[j]) * (K/permittivity) * chargeProduct / distanceDenominator;
-
-							// [L=meter] = ([Force]/[M=kg] = [L=meter]/[T=seconds]^-2) * [T=seconds]
-							posX[i] += (forceX / mass[i]) * timeStep;
-							posY[i] += (forceY / mass[i]) * timeStep;
+							forceX += (posX[i] - posX[j]) * (K/permittivity) * chargeProduct / distanceDenominator;
+							forceY += (posY[i] - posY[j]) * (K/permittivity) * chargeProduct / distanceDenominator;
 
 							if(chargeProduct != 0)
 							{
@@ -171,10 +171,14 @@ int main(int argc, char **argv)
 							computationCount++;
 						}
 					}
+
+					// [L=meter] = ([Force]/[M=kg] = [L=meter]/[T=seconds]^-2) * [T=seconds]
+					posX[i] += (forceX / mass[i]) * timeStep;
+					posY[i] += (forceY / mass[i]) * timeStep;
 				}
 
 				SDL_RenderPresent(renderer);
-				//SDL_Delay(timeStep * 1000);
+				SDL_Delay(frameStep * 1000);
 			}
 
 			TTF_CloseFont(font);
