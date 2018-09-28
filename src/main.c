@@ -7,6 +7,7 @@
 
 #ifdef LINUX_PLATFORM
 #include <SDL2/SDL.h>
+
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_ttf.h>
 #endif
@@ -16,7 +17,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "../headers/GenericTypes.h"
+#include "headers/GenericTypes.h"
 
 #define METERS_PER_PIXEL pow(10.0, -31.0)
 
