@@ -23,11 +23,20 @@ int main(int argc, char **argv)
 	const int particleSize = 25; // image size in pixels
 
 	// Physics & Simulation constants
+	const float referenceMass = 9.11 * pow(10.0, -31); // kg (mass of an electron)
+	const float referenceLength = 1.0 * pow(10.0, -10.0); // Meters
+	const float referenceTime = 1.0 * pow(10.0, -12.0); // Picoseconds
+	const float referenceCharge = 1.6 * pow(10.0, -19.0); // Coulombs
+	const float coulombsConstant = 9.0 * pow(10.0, 9.0);
+
+	const float newConstant = coulombsConstant * pow(referenceTime, 2.0) * pow(referenceCharge, 2.0) / (referenceMass * pow(referenceLength, 3.0));
+	printf("New constant: %.f\n", newConstant);
+
 	const float electronMass = 1.0;
 	const float protonMass = 1836.0 * electronMass;
 	const float elementaryCharge = 1.0;
-	const float K = 150.0; // !!! ARIBTRARILY CHOSEN !!! //
-	const float permittivity = 1.006; // Environment's permittivity (1.006 for air, 80.0 for water)
+	
+	const float permittivity = 1; // Environment's permittivity (~1 for air, 80.0 for water)
 	
 	// Simulation Data
 	srand(time(NULL));
@@ -124,7 +133,6 @@ int main(int argc, char **argv)
 				SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
                 SDL_RenderClear(renderer);
                 SDL_SetRenderDrawColor(renderer, 255, 255, 255, SDL_ALPHA_OPAQUE);
-                SDL_RenderCopy(renderer, textTexture, NULL, &destRectText);
 
 				for(int i = 0; i < particleCount; i++)
 				{
@@ -134,26 +142,13 @@ int main(int argc, char **argv)
 					destRect.w = particleSize;
 					destRect.h = particleSize;
 
-					if(particles[i].charge > 0.0)
-					{
-						SDL_RenderCopy(renderer, positiveParticleTexture, NULL, &destRect);
-					}
-					else if(particles[i].charge < 0.0)
-					{
-						SDL_RenderCopy(renderer, negativeParticleTexture, NULL, &destRect);
-					}
-					else
-					{
-						SDL_RenderCopy(renderer, neutralParticleTexture, NULL, &destRect);
-					}
-
 					float forceX = 0.0, forceY = 0.0;
 					for(int j = 0; j < particleCount; j++)
 					{
 						if(i != j)
 						{
 							float distance = dist(particles[i].position.X, particles[j].position.X, particles[i].position.Y, particles[j].position.Y); // In pixels
-							if(distance <= (particleSize / 50.0))
+							/*if(distance <= 10)
 							{
 								particles[i].charge = particles[j].charge = 0.0;
 								particles[j].position.X = particles[i].position.X;
@@ -161,15 +156,16 @@ int main(int argc, char **argv)
 								
 								// Skip this iteration since any further calculation would be completely 1pointless
 								continue;
-							}
+							}*/
 
 							float chargeProduct = particles[i].charge * particles[j].charge;
-							float distanceDenominator = pow(distance, 3.0/2.0); // In meters	
-							float productRest = (K/permittivity) * chargeProduct / distanceDenominator;
-
-							// Force dimesion: ([M=kg][L=meter])/[T=seconds]^-2
-							forceX += (particles[i].position.X - particles[j].position.X) * productRest;
-							forceY += (particles[i].position.Y - particles[j].position.Y) * productRest;
+							
+							/**
+							 * Force dimesion: ([M=kg][L=meter])/[T=seconds]^-2
+							 * F = K * qA * qB / d²
+							 */
+							forceX += (particles[i].position.X - particles[j].position.X) * newConstant * chargeProduct / (distance * distance);
+							forceY += (particles[i].position.Y - particles[j].position.Y) * newConstant * chargeProduct / (distance * distance);
 
 							if(chargeProduct != 0)
 							{
@@ -187,10 +183,25 @@ int main(int argc, char **argv)
 						}
 					}
 
+					if(particles[i].charge > 0.0)
+					{
+						SDL_RenderCopy(renderer, positiveParticleTexture, NULL, &destRect);
+					}
+					else if(particles[i].charge < 0.0)
+					{
+						SDL_RenderCopy(renderer, negativeParticleTexture, NULL, &destRect);
+					}
+					else
+					{
+						SDL_RenderCopy(renderer, neutralParticleTexture, NULL, &destRect);
+					}
+					
 					// [L=meter] = ([Force]/[M=kg] = [L=meter]/[T=seconds]^-2) * [T=seconds]
 					particles[i].position.X += (forceX / particles[i].mass) * timeStep;
 					particles[i].position.Y += (forceY / particles[i].mass) * timeStep;
 				}
+
+				SDL_RenderCopy(renderer, textTexture, NULL, &destRectText); // Render Text
 
 				SDL_RenderPresent(renderer);
 				SDL_Delay(frameStep * 1000);
