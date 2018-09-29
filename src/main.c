@@ -1,16 +1,6 @@
-#define LINUX_PLATFORM
-
-#ifdef WINDOW_PLATORM
-#define SDL_MAIN_HANDLED
-#include <SDL.h>
-#endif
-
-#ifdef LINUX_PLATFORM
 #include <SDL2/SDL.h>
-
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_ttf.h>
-#endif
 
 #include <time.h>
 #include <math.h>
