@@ -1,6 +1,6 @@
 # Project Status
 
-![Build status](https://img.shields.io/badge/build-success-brightgreen.svg)
+![Build status](https://img.shields.io/badge/build-failed-red.svg)
 ![Version](https://img.shields.io/badge/version-alpha--1-red.svg)
 
 The project is still under moderate development, so far the exact direction of it isn't know. It can quickly change aspect as it can stay as it is for months.
