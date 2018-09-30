@@ -25,6 +25,7 @@ typedef struct {
 
 typedef struct {
     Vector2 position;
+    Vector2 velocity;
     float charge;
     float mass;
 } Particle;

@@ -9,7 +9,7 @@
 
 #include "headers/GenericTypes.h"
 
-#define METERS_PER_PIXEL pow(10.0, -31.0)
+#define UNITS_PER_PIXEL (pow(10.0, -3.0))
 
 float dist(float x1, float x2, float y1, float y2);
 
@@ -20,28 +20,24 @@ int main(int argc, char **argv)
 
 	SDL_Window* window = NULL;
 	SDL_Renderer* renderer = NULL;
-	const int particleSize = 25; // image size in pixels
+	const int particleSize = 20; // image size in pixels
 
 	// Physics & Simulation constants
-	const float referenceMass = 9.11 * pow(10.0, -31); // kg (mass of an electron)
-	const float referenceLength = 1.0 * pow(10.0, -10.0); // Meters
-	const float referenceTime = 1.0 * pow(10.0, -12.0); // Picoseconds
+	const float referenceMass = 9.11 * pow(10.0, -31.0); // kg (mass of an electron)
+	const float referenceLength = 52.9 * pow(10.0, -12.0); // Bohr Radius (52.9 picometers)
+	const float referenceTime = 2.4 * pow(10.0, -17.0); // Electron orbit time in hydrogen (in seconds)
 	const float referenceCharge = 1.6 * pow(10.0, -19.0); // Coulombs
-	const float coulombsConstant = 9.0 * pow(10.0, 9.0);
+	const float coulombsConstant = 9.0 * pow(10.0, 9.0); // Coulombs' Law Constant
 
 	const float newConstant = coulombsConstant * pow(referenceTime, 2.0) * pow(referenceCharge, 2.0) / (referenceMass * pow(referenceLength, 3.0));
 	printf("New constant: %.f\n", newConstant);
-
-	const float electronMass = 1.0;
-	const float protonMass = 1836.0 * electronMass;
-	const float elementaryCharge = 1.0;
 	
 	const float permittivity = 1; // Environment's permittivity (~1 for air, 80.0 for water)
 	
 	// Simulation Data
 	srand(time(NULL));
-	float timeStep = 0.01;
 	float frameStep = 0.016; // FPS limiter = (1/.016 = 62fps)
+	float timeStep = frameStep;
 	float simulationTime = 0.0; // Do not change, it's automatically calculated within the physics loop
 	int computationCount = 0; // Number of total loops for all particles since (t=0)
 	int particleCount = (argc == 2 ? atoi(argv[1]) : 10);
@@ -52,9 +48,12 @@ int main(int argc, char **argv)
 	// Particle initializer
 	for(int i = 0; i < particleCount; i++)
 	{
+		particles[i].velocity.X = 0;
+		particles[i].velocity.Y = 0;
 		particles[i].position.X = rand() % windowWidth;
 		particles[i].position.Y = rand() % windowHeight;
-		particles[i].charge = elementaryCharge * (rand() % 2 == 0 ? 1.0 : -1.0 ); // Elementary charge
+
+		particles[i].charge = (rand() % 2 == 0 ? 1.0 : -1.0 ); // Elementary charge
 		particles[i].mass = 1.0;
 	}
 
@@ -142,13 +141,16 @@ int main(int argc, char **argv)
 					destRect.w = particleSize;
 					destRect.h = particleSize;
 
-					float forceX = 0.0, forceY = 0.0;
+					Vector2 force;
+					force.X = 0;
+					force.Y = 0;
+					
 					for(int j = 0; j < particleCount; j++)
 					{
 						if(i != j)
 						{
-							float distance = dist(particles[i].position.X, particles[j].position.X, particles[i].position.Y, particles[j].position.Y); // In pixels
-							/*if(distance <= 10)
+							float distance = UNITS_PER_PIXEL * dist(particles[i].position.X, particles[j].position.X, particles[i].position.Y, particles[j].position.Y); // In pixels
+							if(distance <= 0.01 && (particles[j].charge > 0.1 || particles[j].charge < -0.1))
 							{
 								particles[i].charge = particles[j].charge = 0.0;
 								particles[j].position.X = particles[i].position.X;
@@ -156,7 +158,7 @@ int main(int argc, char **argv)
 								
 								// Skip this iteration since any further calculation would be completely 1pointless
 								continue;
-							}*/
+							}
 
 							float chargeProduct = particles[i].charge * particles[j].charge;
 							
@@ -164,8 +166,8 @@ int main(int argc, char **argv)
 							 * Force dimesion: ([M=kg][L=meter])/[T=seconds]^-2
 							 * F = K * qA * qB / d²
 							 */
-							forceX += (particles[i].position.X - particles[j].position.X) * newConstant * chargeProduct / (distance * distance);
-							forceY += (particles[i].position.Y - particles[j].position.Y) * newConstant * chargeProduct / (distance * distance);
+							force.X += UNITS_PER_PIXEL * (particles[i].position.X - particles[j].position.X) * newConstant * chargeProduct / (distance * distance);
+							force.Y += UNITS_PER_PIXEL * (particles[i].position.Y - particles[j].position.Y) * newConstant * chargeProduct / (distance * distance);
 
 							if(chargeProduct != 0)
 							{
@@ -183,6 +185,9 @@ int main(int argc, char **argv)
 						}
 					}
 
+					particles[i].velocity.X += (force.X / particles[i].mass) * timeStep;
+					particles[i].velocity.Y += (force.Y / particles[i].mass) * timeStep;
+
 					if(particles[i].charge > 0.0)
 					{
 						SDL_RenderCopy(renderer, positiveParticleTexture, NULL, &destRect);
@@ -197,8 +202,8 @@ int main(int argc, char **argv)
 					}
 					
 					// [L=meter] = ([Force]/[M=kg] = [L=meter]/[T=seconds]^-2) * [T=seconds]
-					particles[i].position.X += (forceX / particles[i].mass) * timeStep;
-					particles[i].position.Y += (forceY / particles[i].mass) * timeStep;
+					particles[i].position.X += particles[i].velocity.X * timeStep;
+					particles[i].position.Y += particles[i].velocity.Y * timeStep;
 				}
 
 				SDL_RenderCopy(renderer, textTexture, NULL, &destRectText); // Render Text
