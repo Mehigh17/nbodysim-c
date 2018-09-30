@@ -37,3 +37,7 @@ This is how a simulation with initially 10 particles launched looks like.
 
 - The text rendering is very choppy.
 - Computation algorithm can potentially be improved.
+
+# Special Thanks
+
+[Vassvik](https://twitter.com/vassvik) - Helped to put the base of a much more accurate physics behaviour.
