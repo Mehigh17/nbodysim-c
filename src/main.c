@@ -149,8 +149,11 @@ int main(int argc, char **argv)
 					{
 						if(i != j)
 						{
+							float chargeProduct = particles[i].charge * particles[j].charge;
+
 							float distance = UNITS_PER_PIXEL * dist(particles[i].position.X, particles[j].position.X, particles[i].position.Y, particles[j].position.Y); // In pixels
-							if(distance <= 0.01 && (particles[j].charge > 0.1 || particles[j].charge < -0.1))
+							//if(distance <= 0.01 && (particles[j].charge > 0.1 || particles[j].charge < -0.1))
+							if(chargeProduct < -0.9 && distance <= 0.01) // They cancel eachother only if they're of opposite polarity
 							{
 								particles[i].charge = particles[j].charge = 0.0;
 								particles[j].position.X = particles[i].position.X;
@@ -159,8 +162,6 @@ int main(int argc, char **argv)
 								// Skip this iteration since any further calculation would be completely 1pointless
 								continue;
 							}
-
-							float chargeProduct = particles[i].charge * particles[j].charge;
 							
 							/**
 							 * Force dimesion: ([M=kg][L=meter])/[T=seconds]^-2
