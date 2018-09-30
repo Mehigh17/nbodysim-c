@@ -36,5 +36,4 @@ This is how a simulation with initially 10 particles launched looks like.
 # Known bugs & caveats
 
 - The text rendering is very choppy.
-- The physics of the simulation is completely inaccurate.
 - Computation algorithm can potentially be improved.
