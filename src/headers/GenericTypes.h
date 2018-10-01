@@ -3,31 +3,40 @@
 
 // Type Constants
 
-#define TRUE 1
-#define FALSE 0
-
 // General Types
-
-typedef unsigned char BOOL;
 
 // Object Types
 
-typedef struct {
+typedef struct
+{
     float X;
     float Y;
 } Vector2;
 
-typedef struct {
+typedef struct
+{
     float X;
     float Y;
     float Z;
 } Vector3;
 
-typedef struct {
+typedef struct
+{
     Vector2 position;
     Vector2 velocity;
     float charge;
     float mass;
 } Particle;
+
+typedef struct
+{
+    uint64_t computationCount;
+    uint32_t particleCount;
+    Particle *particles;
+    float_t simulationTime;
+
+    float_t normalizationConstant;
+    float_t timeStep;
+} Simulation;
 
 #endif
