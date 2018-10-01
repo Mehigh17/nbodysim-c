@@ -29,6 +29,22 @@ int main(int argc, char **argv)
 	SDL_Window *window = NULL;
 	SDL_Renderer *renderer = NULL;
 
+	// Display initializer
+	bool isFullscreen = false;
+	SDL_DisplayMode currentDiplayMode;
+	if (isFullscreen && !SDL_GetCurrentDisplayMode(0, &currentDiplayMode))
+	{
+		// Success
+		windowWidth = currentDiplayMode.w;
+		windowHeight = currentDiplayMode.h;
+	}
+	else
+	{
+		// Failure
+		windowWidth = 1024;
+		windowHeight = 512;
+	}
+
 	Simulation simulation;
 	// Physics & Simulation constants
 	const float referenceMass = 9.11 * pow(10.0, -31.0);   // kg (mass of an electron)
@@ -52,34 +68,25 @@ int main(int argc, char **argv)
 	Particle particles[simulation.particleCount]; // Particles array
 	simulation.particles = particles;
 
-	bool isFullscreen = false;
-
 	// Particle initializer
 	for (int i = 0; i < simulation.particleCount; i++)
 	{
 		particles[i].velocity.X = 0;
 		particles[i].velocity.Y = 0;
-		particles[i].position.X = rand() % windowWidth;
-		particles[i].position.Y = rand() % windowHeight;
+
+		particles[i].position.X = PARTICLE_SIZE + rand() % (windowWidth - 2 * PARTICLE_SIZE);
+		particles[i].position.Y = PARTICLE_SIZE + rand() % (windowHeight - 2 * PARTICLE_SIZE);
 
 		particles[i].charge = (rand() % 2 == 0 ? 1.0 : -1.0); // Elementary charge
 		particles[i].mass = 1.0;
 	}
 
-	// Display initializer
-	SDL_DisplayMode currentDiplayMode;
-	if (isFullscreen && !SDL_GetCurrentDisplayMode(0, &currentDiplayMode))
-	{
-		// Success
-		windowWidth = currentDiplayMode.w;
-		windowHeight = currentDiplayMode.h;
-	}
-	else
-	{
-		// Failure
-		windowWidth = 1024;
-		windowHeight = 768;
-	}
+	SDL_Rect boundingBox;
+	boundingBox.x = 0;
+	boundingBox.y = 0;
+	boundingBox.w = windowWidth;
+	boundingBox.h = windowHeight;
+	simulation.boundingBox = boundingBox;
 
 	if (SDL_Init(SDL_INIT_VIDEO) < 0 || TTF_Init() < 0)
 	{
@@ -214,7 +221,7 @@ void updatePhysics(Simulation *simulation)
 				float chargeProduct = (*simulation).particles[i].charge * (*simulation).particles[j].charge;
 
 				float distance = UNITS_PER_PIXEL * dist((*simulation).particles[i].position.X, (*simulation).particles[j].position.X, (*simulation).particles[i].position.Y, (*simulation).particles[j].position.Y); // In pixels
-				if (chargeProduct < -0.9 && distance <= 0.01) // They cancel eachother only if they're of opposite polarity
+				if (chargeProduct < -0.9 && distance <= 0.01)																																						 // They cancel eachother only if they're of opposite polarity
 				{
 					(*simulation).particles[i].charge = (*simulation).particles[j].charge = 0.0;
 					(*simulation).particles[j].position.X = (*simulation).particles[i].position.X;
@@ -237,6 +244,16 @@ void updatePhysics(Simulation *simulation)
 
 		(*simulation).particles[i].velocity.X += (force.X / (*simulation).particles[i].mass) * (*simulation).timeStep;
 		(*simulation).particles[i].velocity.Y += (force.Y / (*simulation).particles[i].mass) * (*simulation).timeStep;
+
+		if ((*simulation).particles[i].position.X < 0 || (*simulation).particles[i].position.X > ((*simulation).boundingBox.w - (PARTICLE_SIZE)))
+		{
+			(*simulation).particles[i].velocity.X *= -1.0;
+		}
+
+		if ((*simulation).particles[i].position.Y < 0 || (*simulation).particles[i].position.Y > ((*simulation).boundingBox.h - (PARTICLE_SIZE)))
+		{
+			(*simulation).particles[i].velocity.Y *= -1.0;
+		}
 
 		// [L=meter] = ([Force]/[M=kg] = [L=meter]/[T=seconds]^-2) * [T=seconds]
 		(*simulation).particles[i].position.X += (*simulation).particles[i].velocity.X * (*simulation).timeStep;

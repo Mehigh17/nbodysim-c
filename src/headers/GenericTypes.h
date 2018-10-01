@@ -37,6 +37,8 @@ typedef struct
 
     float_t normalizationConstant;
     float_t timeStep;
+
+    SDL_Rect boundingBox;
 } Simulation;
 
 #endif
