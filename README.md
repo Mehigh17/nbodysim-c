@@ -22,7 +22,7 @@ The colors of the lines represent the attraction between two bodies. *Green* lin
 This project has been developed on Linux so far, so here's a quick shortcut on what packages you should install:
 
 ```bash
-sudo apt-get install sdl2lib-dev sdl2lib-image-dev sdl2lib-ttf-dev
+sudo apt-get install libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev
 ```
 
 Once you've got the libraries installed just do `make` in the project root directory and you should be able to run it flawlessly.
