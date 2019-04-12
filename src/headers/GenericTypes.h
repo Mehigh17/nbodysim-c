@@ -1,6 +1,8 @@
 #ifndef GENERIC_TYPES_H
 #define GENERIC_TYPES_H
 
+#include <SDL2/SDL.h>
+
 // Type Constants
 
 // General Types
@@ -30,13 +32,13 @@ typedef struct
 
 typedef struct
 {
-    uint64_t computationCount;
-    uint32_t particleCount;
+    long computationCount;
+    int particleCount;
     Particle *particles;
-    float_t simulationTime;
+    float simulationTime;
 
-    float_t normalizationConstant;
-    float_t timeStep;
+    float normalizationConstant;
+    float timeStep;
 
     SDL_Rect boundingBox;
 } Simulation;
