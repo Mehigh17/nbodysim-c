@@ -9,7 +9,7 @@
 #include <stdbool.h>
 
 #include "headers/GenericTypes.h"
-#include "headers/calculus.h"
+#include "headers/math.h"
 
 #define UNITS_PER_PIXEL (pow(10.0, -3.0))
 #define PARTICLE_SIZE 20
